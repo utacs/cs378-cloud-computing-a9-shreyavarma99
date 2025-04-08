@@ -10,9 +10,10 @@ def aggregate_count(new_values, total_sum):
 
 def decode_json(line):
     dictionary = json.loads(line)
-    text = dictionary["text"]
-    # extract other fields TODO
-    return text
+    if "retweeted_status" in dictionary:
+        return dictionary["retweeted_status"]["text"], dictionary["retweeted_status"]["user"]["id"]
+    else:
+        return dictionary["text"], None
 
 def safe_parse(s):
     try:
@@ -42,17 +43,20 @@ ssc.checkpoint("checkpoint_TwitterApp")
 # read data from port 9009
 dataStream = ssc.socketTextStream("localhost", 9009)
 
+# task 1
 
-# split each tweet into words
-#  = dataStream.window(300, 5).flatMap(lambda line: line.split())
+task1 = dataStream\
+.window(300, 5)\
+.map(decode_json)\
+.filter(lambda x: x[1] is not None and "data" in x[0].lower())\
+.map(lambda x: (x[1], (1, x[0])))\
+.reduceByKey(lambda x, y: (x[0] + y[0], x[1]))\
+.map(lambda x: (x[0], x[1][0], x[1][1]))\
+.transform(lambda x: x.sortBy(lambda x: x[1], ascending=False))\
 
-#words.pprint(5)
+task1.pprint(5)
 
 
-lines = dataStream.window(300, 5).map(decode_json)
-
-
-lines.pprint(2)
 
 
 # We show an example of top 5 results 

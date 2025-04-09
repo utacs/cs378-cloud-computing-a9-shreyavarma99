@@ -1,4 +1,3 @@
-
 from pyspark import SparkConf,SparkContext
 from pyspark.streaming import StreamingContext
 import sys
@@ -53,30 +52,32 @@ conf.setAppName("Task3")
 sc = SparkContext(conf=conf)
 sc.setLogLevel("FATAL")
 
-ssc = StreamingContext(sc, 1)
+ssc = StreamingContext(sc, 5)
 ssc.checkpoint("checkpoint_TwitterApp")
 
-dataStream = ssc.socketTextStream("localhost", 9025)
+dataStream = ssc.socketTextStream("localhost", 9009)
+
+windowedDataStream = dataStream.window(300, 5)
+
+def compute_percentage(x):
+    health_count = x[0]
+    total = x[1]
+    if total != 0:
+        percentage = (health_count / total) * 100
+        return f"(Health tweet percentage: {percentage:.2f}%)"
+    else:
+        return "(Health tweet percentage: 0.00%)"
 
 keywords = ["fever", "ache", "pain", "sick"]
-filtered = dataStream.filter(lambda tweet: any(word in tweet.lower() for word in keywords))
+kw = sc.broadcast(keywords)
 
-windowedDataStream = filtered.window(300, 5)
+task3 = windowedDataStream\
+.filter(lambda x: any(word in x.lower() for word in kw.value))\
+.map(lambda x: (1 if classify_record(x) else 0, 1))\
+.reduce(lambda x, y: (x[0] + y[0], x[1] + y[1]))\
+.map(compute_percentage)\
 
-classified = windowedDataStream.map(lambda tweet: (1 if classify_record(tweet) else 0, 1))
-
-counts = classified.reduce(lambda a, b: (a[0] + b[0], a[1] + b[1]))
-
-def compute_percentage(rdd):
-    if not rdd.isEmpty():
-        for (health_count, total) in rdd.collect():
-            if total != 0:
-                percentage = (health_count / total) * 100
-                print(f"(Health tweet percentage: {percentage:.2f}%)")
-            else:
-                print("(Health tweet percentage: 0.00%)")
-
-counts.foreachRDD(compute_percentage)
+task3.pprint(5)
 
 # Start streaming
 ssc.start()

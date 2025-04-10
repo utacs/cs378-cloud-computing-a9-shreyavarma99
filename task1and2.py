@@ -60,7 +60,7 @@ def task2_decode_json(line):
     return dictionary["text"], hashtags
 
 stop_words = set([
-    "the", "and", "is", "in", "to", "with", "a", "of", "on", "for", "this", "that", "it", "as", "at"
+    "the", "and", "is", "in", "to", "with", "a", "of", "on", "for", "this", "that", "it", "as", "at", "from"
 ])
 sw = sc.broadcast(stop_words)
 

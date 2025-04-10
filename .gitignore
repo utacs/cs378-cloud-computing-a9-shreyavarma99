@@ -1,2 +1,3 @@
 *.txt
+!output.txt
 checkpoint_TwitterApp
